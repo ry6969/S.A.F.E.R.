@@ -8,14 +8,34 @@
 #define ORANGE_LED_PIN 3
 #define PUMP_RELAY_PIN 2
 
+#include <Servo.h>
+
+//Component Object Constructor
+Servo servo1;
+Servo servo2;
+
+//Function Declaration
 void blinkALL(int count, int interval);
 void LedOn(char color);
+
+int readFlameLevel();
+bool isFlamePresent();
+void printFlameStatus();
+
+int readSmokeLevel();
+bool isSmokePresent();
+void printSmokeStatus();
+
+//Global Variable
+int minAngle = 0;
+int maxAngle = 180;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   Serial.println("Device Starting");
 
+  //Pin Set-ups
   pinMode(FLAME_PIN, INPUT);
   pinMode(GAS_PIN, INPUT);
   pinMode(SERVO1_PIN, OUTPUT);
@@ -26,15 +46,84 @@ void setup() {
   pinMode(ORANGE_LED_PIN, OUTPUT);
   pinMode(PUMP_RELAY_PIN, OUTPUT);
 
+  servo1.attach(SERVO1_PIN);
+  servo2.attach(SERVO2_PIN);
+
+
   Serial.println("Set-up is complete and ready!!!");
   blinkALL(2, 250);
-  LedOn('B'); //Power Indicator
-
-  
+  LedOn('B'); //Power Indicator  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+
+  //Debug Status
+  printFlameStatus();
+  printSmokeStatus();
+
+  //Scanning Motion - Servo1
+  static int currentAngle = minAngle;
+  int angleDifference = 10;
+  static bool reachedMax = false; 
+
+  if (!isFlamePresent() && !isSmokePresent()) {
+    if (reachedMax == false) {
+      currentAngle += angleDifference;
+      if (currentAngle >= maxAngle) {
+        currentAngle = maxAngle;
+        reachedMax = true;
+      }
+    } else if (reachedMax == true) {
+      currentAngle -= angleDifference;
+      if (currentAngle <= minAngle) {
+        currentAngle = minAngle;
+        reachedMax = false;
+      }
+    }
+
+    servo1.write(currentAngle);
+  }
+
+  if (isFlamePresent()){
+    LedOn('R');
+    servo2.write(currentAngle);
+    //TODO: Turn on Motor
+    delay(50000);
+    //TODO: Turn off Motor
+  } else {
+    LedOff('R');
+  }
+
+  static int servo2Angle = 0;
+  static bool servo2Increasing = true;
+
+  if (isSmokePresent()) {
+      LedOn('O');
+      
+      // Sweep servo2 back and forth
+      if (servo2Increasing) {
+          servo2Angle += 10;
+          if (servo2Angle >= 180) {
+              servo2Angle = 180;
+              servo2Increasing = false;
+          }
+      } else {
+          servo2Angle -= 10;
+          if (servo2Angle <= 0) {
+              servo2Angle = 0;
+              servo2Increasing = true;
+          }
+      }
+      
+      servo2.write(servo2Angle);
+      // Turn on motor here (non-blocking)
+  } else {
+      LedOff('O');
+      // Turn off motor here
+  }
+
+
+  delay (250);
 
 }
 
@@ -71,5 +160,49 @@ void LedOff(char color){
     digitalWrite(RED_LED_PIN, LOW);
   } else if (color == 'O') {
     digitalWrite(ORANGE_LED_PIN, LOW);
+  }
+}
+
+int readFlameLevel(){
+  int flameLevel = analogRead(FLAME_PIN);
+  return flameLevel;
+}
+
+bool isFlamePresent(){
+  if (readFlameLevel() < 700){
+    return true;
+  } else return false;
+}
+
+void printFlameStatus(){
+  Serial.print("Flame Value: ");
+  Serial.print(readFlameLevel());
+  if (isFlamePresent()){
+    Serial.println(" Status: Flame Dectected!!!");
+  } else {
+    Serial.println(" Status: No Flame Detected");
+  }
+  
+}
+
+int readSmokeLevel(){
+  int smokeLevel = analogRead(GAS_PIN);
+  return smokeLevel;
+}
+
+bool isSmokePresent(){
+  if (readSmokeLevel() > 500){
+    return true;
+  } else return false;
+}
+
+void printSmokeStatus(){
+  Serial.print("Smoke Value: ");
+  Serial.print(readSmokeLevel());
+
+  if (isSmokePresent()){
+    Serial.println(" Status: Smoke Dectected!!!");
+  } else {
+    Serial.println(" Status: No Smoke Detected");
   }
 }

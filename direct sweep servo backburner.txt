@@ -1,0 +1,69 @@
+// Global/static variables for smoke servo sweep
+static bool smokeServoAt0 = true;
+static unsigned long lastSweepTime = 0;
+const unsigned long sweepInterval = 100; // time in ms between jumps
+
+void loop() {
+    unsigned long now = millis();
+
+    // Debug
+    printFlameStatus();
+    printSmokeStatus();
+
+    // Servo1 scanning (fire)
+    static int currentAngle = minAngle;
+    static bool reachedMax = false;
+    int angleDifference = 10;
+
+    if (!isFlamePresent() && !isSmokePresent()) {
+        if (!reachedMax) {
+            currentAngle += angleDifference;
+            if (currentAngle >= maxAngle) {
+                currentAngle = maxAngle;
+                reachedMax = true;
+            }
+        } else {
+            currentAngle -= angleDifference;
+            if (currentAngle <= minAngle) {
+                currentAngle = minAngle;
+                reachedMax = false;
+            }
+        }
+        servo1.write(currentAngle);
+    }
+
+    // Fire detected
+    if (isFlamePresent()) {
+        LedOn('R');
+        servo2.write(currentAngle); // aim spray
+        // TODO: Turn on motor
+    } else {
+        LedOff('R');
+        // TODO: Turn off motor if needed
+    }
+
+    // Smoke detected
+    if (isSmokePresent()) {
+        LedOn('O');
+
+        // Sweep servo2 0° ↔ 180° without blocking
+        if (now - lastSweepTime >= sweepInterval) {
+            if (smokeServoAt0) {
+                servo2.write(180);
+                smokeServoAt0 = false;
+            } else {
+                servo2.write(0);
+                smokeServoAt0 = true;
+            }
+            lastSweepTime = now;
+        }
+
+        // TODO: Turn on motor continuously
+    } else {
+        LedOff('O');
+        // TODO: Turn off motor
+    }
+
+    delay(50); // keeps loop responsive, adjust as needed
+}
+
