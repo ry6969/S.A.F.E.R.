@@ -27,8 +27,8 @@ bool isSmokePresent();
 void printSmokeStatus();
 
 //Global Variable
-int minAngle = 0;
-int maxAngle = 180;
+int minAngle = 30;
+int maxAngle = 150;
 
 void setup() {
   // put your setup code here, to run once:
@@ -88,7 +88,7 @@ void loop() {
     LedOn('R');
     servo2.write(currentAngle);
     //TODO: Turn on Motor
-    delay(50000);
+    delay(5000);
     //TODO: Turn off Motor
   } else {
     LedOff('R');
