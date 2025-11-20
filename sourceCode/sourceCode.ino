@@ -49,6 +49,8 @@ void setup() {
   servo1.attach(SERVO1_PIN);
   servo2.attach(SERVO2_PIN);
 
+  digitalWrite(PUMP_RELAY_PIN, HIGH); //make sure the pump is off
+
 
   Serial.println("Set-up is complete and ready!!!");
   blinkALL(2, 250);
@@ -65,6 +67,9 @@ void loop() {
   static int currentAngle = minAngle;
   int angleDifference = 10;
   static bool reachedMax = false; 
+  static bool wasFlameActive = false;
+  static bool wasSmokeActive = false;
+
 
   if (!isFlamePresent() && !isSmokePresent()) {
     if (reachedMax == false) {
@@ -87,9 +92,11 @@ void loop() {
   if (isFlamePresent()){
     LedOn('R');
     servo2.write(currentAngle);
-    //TODO: Turn on Motor
+    digitalWrite(PUMP_RELAY_PIN, LOW);//TODO: Turn on Motor
     delay(5000);
-    //TODO: Turn off Motor
+    servo2.write(90);
+    delay(500);
+    digitalWrite(PUMP_RELAY_PIN, HIGH); //TODO: Turn off Motor
   } else {
     LedOff('R');
   }
@@ -116,10 +123,17 @@ void loop() {
       }
       
       servo2.write(servo2Angle);
-      // Turn on motor here (non-blocking)
+      digitalWrite(PUMP_RELAY_PIN, LOW); // Turn on motor here (non-blocking)
+      wasSmokeActive = true;
+
   } else {
       LedOff('O');
-      // Turn off motor here
+      servo2.write(90);
+      if (wasSmokeActive == true){
+        delay(500);
+      }
+      digitalWrite(PUMP_RELAY_PIN, HIGH); // Turn off motor here
+      wasSmokeActive = false;
   }
 
 
@@ -169,7 +183,7 @@ int readFlameLevel(){
 }
 
 bool isFlamePresent(){
-  if (readFlameLevel() < 700){
+  if (readFlameLevel() < 1000){
     return true;
   } else return false;
 }
@@ -191,7 +205,7 @@ int readSmokeLevel(){
 }
 
 bool isSmokePresent(){
-  if (readSmokeLevel() > 500){
+  if (readSmokeLevel() > 280){
     return true;
   } else return false;
 }
