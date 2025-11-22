@@ -1,8 +1,15 @@
 #define PUMP_RELAY_PIN 2
+#define SERVO2_PIN 6
+
+#include <Servo.h>
+
+Servo servo2;
 
 void setup() {
   pinMode(PUMP_RELAY_PIN, OUTPUT);
   digitalWrite(PUMP_RELAY_PIN, HIGH); // relay OFF initially (assuming LOW = ON)
+  servo2.attach(SERVO2_PIN);
+  servo2.write(90); // reset
   Serial.begin(9600);
   Serial.println("Enter 1 to turn ON the pump, 0 to turn OFF:");
 }
