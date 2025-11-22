@@ -1,24 +1,15 @@
 #define FLAME_PIN A1
 #define GAS_PIN A0
-#define SERVO1_PIN 9
-#define SERVO2_PIN 6
 #define BUZZER_PIN 8
 #define BLUE_LED_PIN 5
 #define RED_LED_PIN 4
 #define ORANGE_LED_PIN 3
-#define PUMP_RELAY_PIN 2
-
-#include <Servo.h>
-
-//Component Object Constructor
-Servo servo1;
-Servo servo2;
 
 //Function Declaration
 void bootDisplay();
 void blinkALL(int count, int interval);
 void LedOn(char color);
-void LedOff(char color);
+void LedOFff(char color);
 void buzzerAlert(char type);
 
 int readFlameLevel();
@@ -30,13 +21,6 @@ int readSmokeLevel();
 bool isSmokePresent();
 void printSmokeStatus();
 
-//Global Variable
-int sprayAngle = 90;  // servo1 initial angle
-int sprayStep = 15;   // how many degrees to move per loop toward detected fire
-
-int minAngle = 60;
-int maxAngle = 120;
-
 void setup() {
 
   Serial.begin(9600);
@@ -45,116 +29,53 @@ void setup() {
   //Pin Set-ups
   pinMode(FLAME_PIN, INPUT);
   pinMode(GAS_PIN, INPUT);
-  pinMode(SERVO1_PIN, OUTPUT);
-  pinMode(SERVO2_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(ORANGE_LED_PIN, OUTPUT);
-  pinMode(PUMP_RELAY_PIN, OUTPUT);
-
-  servo1.attach(SERVO1_PIN);
-  servo2.attach(SERVO2_PIN);
-
-  digitalWrite(PUMP_RELAY_PIN, HIGH); //make sure the pump is off
 
   bootDisplay();
   blinkALL(2, 250);
   Serial.println("Set-up is complete and ready!!!");
   LedOn('B');
-  
+
 }
 
 //Global variable
 unsigned long lastBeepTime = 0;
 bool buzzerState = false;
 
-// Global variables for servo2 spraying
-unsigned long sprayStartTime = 0;
-bool spraying = false;
-bool sprayIncreasing = true;
-int sprayMin = 70; // will be set dynamically
-int sprayMax = 110; // will be set dynamically
-
 void loop() {
-
-  // Read sensors
-  bool flameDetected = isFlamePresent();
-  bool smokeDetected = isSmokePresent();
-  
-  // Debug
   printFlameStatus();
-  printSmokeStatus();
 
-  // Servo1 scanning (only if no fire or smoke)
-  static int currentAngle = minAngle;
-  static bool reachedMax = false;
-  int angleDifference = 10;
-
-  if (!flameDetected && !smokeDetected) {
-    if (!reachedMax) {
-      currentAngle += angleDifference;
-      if (currentAngle >= maxAngle) reachedMax = true;
-    } else {
-      currentAngle -= angleDifference;
-      if (currentAngle <= minAngle) reachedMax = false;
-    }
-    servo1.write(currentAngle);
-  }
-
-  // LED handling
-  if (flameDetected) LedOn('R'); else LedOff('R');
-  if (smokeDetected) LedOn('O'); else LedOff('O');
-
-  // Buzzer handling (fire has priority)
-  if (flameDetected) {
-    buzzerAlert('F');
-  } else if (smokeDetected) {
-    buzzerAlert('S');
-  } else {
-    digitalWrite(BUZZER_PIN, LOW);
-  }
-
-  // Sprayer handling (Servo2 + Pump)
   unsigned long currentMillis = millis();
+  unsigned long interval = 0;
 
-  if (flameDetected) {
-    if (!spraying) {
-      // Start spraying
-      spraying = true;
-      sprayStartTime = currentMillis;
-      sprayMin = currentAngle - 20;
-      sprayMax = currentAngle + 20;
-      sprayAngle = sprayMin;
-      sprayIncreasing = true;
-      digitalWrite(PUMP_RELAY_PIN, LOW); // pump ON
-    }
-
-    // Sweep servo2 a little each loop
-    if (sprayIncreasing) {
-      sprayAngle++;
-      if (sprayAngle >= sprayMax) sprayIncreasing = false;
-    } else {
-      sprayAngle--;
-      if (sprayAngle <= sprayMin) sprayIncreasing = true;
-    }
-    servo2.write(sprayAngle);
-
-    // Stop spraying after 5 seconds
-    if (currentMillis - sprayStartTime >= 5000) {
-      spraying = false;
-      servo2.write(90); // reset
-      digitalWrite(PUMP_RELAY_PIN, HIGH); // pump OFF
-    }
-
+  // Fire has priority over smoke
+  if (isFlamePresent()) {
+    LedOn('R');
+    LedOff('O');
+    interval = 100; // fast beep
+  } else if (isSmokePresent()) {
+    LedOn('O');
+    LedOff('R');
+    interval = 250; // slow beep
   } else {
-    // Reset if flame no longer detected
-    spraying = false;
-    servo2.write(90);
-    digitalWrite(PUMP_RELAY_PIN, HIGH);
+    // nothing detected, turn off
+    LedOff('R');
+    LedOff('O');
+    digitalWrite(BUZZER_PIN, LOW);
+    return;
   }
 
-  delay(100); // small loop delay
+  // Non-blocking buzzer toggle
+  if (currentMillis - lastBeepTime >= interval) {
+    lastBeepTime = currentMillis;
+    buzzerState = !buzzerState;
+    digitalWrite(BUZZER_PIN, buzzerState ? HIGH : LOW);
+  }
+
+  delay(50); // loop delay
 }
 
 
